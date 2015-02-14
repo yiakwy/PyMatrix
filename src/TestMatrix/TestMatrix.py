@@ -30,13 +30,14 @@ class const(object):
     b = _TEST_EMPTY = matrixArrayLists()    
 
 def get_variabels(name, type=0):
+    from copy import deepcopy
     return {key:value for key, value in name.__dict__.items() if not key.startswith('__') and not key.startswith('_') and not callable(key)}
     
     
 # temp variables
 test_case_list = get_variabels(const)
 
-class Test(unittest.TestCase):
+class TestMatrix(unittest.TestCase):
     
     def setUp(self):
         pass
@@ -44,7 +45,7 @@ class Test(unittest.TestCase):
     def tearDown(self):
         pass
 
-    def testGetElement( self ):
+    def test_getitem(self):
         
         doc = """
 get one element, x[0], for multi-demension matrix, for example 2 demension matrix it should return
@@ -54,35 +55,39 @@ return none.
         print(doc)
         
         a = test_case_list['a']
+    
+        print("a[:,1,1]", a[:,1,1])
+        print("a[[1,2],1,1]",a[[1,2],1,1])
+        print("a[[1,2],0,[1,2]]",a[[1,2],0,[1,2]])
+        print("a[0]",a[0])
+        print("a[1,2,1]",a[1,2,1])
+        print("a[1,:,2]",a[1,:,2])
             
     def test_fundamental_transportation(self):
         
         a = matrixArrayLists([[1,2],[3,4]])
         
-        print(a)
+        print("original:", a)
         
-        temp = a[0,:]
+        temp   = a[0,:]
         a[0,:] = a[1,:]
         a[1,:] = temp
         
-        print(a)
+        print("row transformation-0", a)
         
-        temp = a[:,0]
+        temp   = a[:,0]
         a[:,0] = a[:,1]
         a[:,1] = temp
         
-        print(a)
+        print("col transformation-1", a)
 
-    def test_transportation(self):
-        b = const._TEST_MATRIX_MULTI
+        a = test_case_list['a']
+        temp     = a[0,:,:]
+        a[0,:,:] = a[1,:,:]
+        a[1,:,:] = temp
         
-        temp = b[0,:,:]
-        b[0,:,:] = b[1,:,:]
-        b[1,:,:] = temp
-        
-        print(b)
+        print("row transformation-2", a)
         
 
 if __name__ == "__main__":
-    #import sys;sys.argv = ['', 'Test.testName']
     unittest.main()
