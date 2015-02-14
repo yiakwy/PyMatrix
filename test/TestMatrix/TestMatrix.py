@@ -15,7 +15,7 @@ Description:
 
 import unittest
 
-from core.matrixArray import *
+from src.core.matrixArray import *
 
 class const(object):
     # three ties nested matrix

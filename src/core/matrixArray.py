@@ -98,7 +98,14 @@ class Size(object):
     def __str__(self):
         return str( len(self.data) ) + ':' + str(self.data) + '\n'         
 
-
+    
+    def assert_equal(self, size):
+        # do implementation here
+        return self, size, True
+    
+    def assert_tolerate(self, size):
+        # do implementation here
+        return self, size, True
 
 # for matrix values, we just have two types, numeric and non-numeric classes
 #===========================================================================
@@ -119,8 +126,8 @@ class Formatter(object):
         else:
             return Formatter(caller._init_matrix_formatter())
     
-    def __getitem__(self, id):
-        return self.templates[id]
+    def __getitem__(self, _id):
+        return self.templates[_id]
     
     def __getattribute__(self, name):
         try:
@@ -152,7 +159,7 @@ class Formatter(object):
             return self[0].format(element,           width=self.width, float=self.float)
         except ValueError:
             return self[1].format(element.__str__(), width=self.width)
-        except TypeError as e:
+        except TypeError:
             return self[1].format(element.__str__(), width=self.width)
     __call__ = fire
     
@@ -237,10 +244,10 @@ def index_val(key, l):
         return tuple([index_val(i, l.pop(0) if len(l) > 0 else 0)[0] for i in key])     
     
     
-def checkKey(name, default, dict):
+def checkKey(name, default, _dict):
     try:
-        value = dict[name]
-    except KeyError as e:
+        value = _dict[name]
+    except KeyError:
         return default
     return \
         value
@@ -273,10 +280,6 @@ class matrixArrayLists(list):
     def __init__(self, *args, **hint):
         # initialization fo hint data 
         # because repesentation in 2 demension, r(row), c(col) are needed. It should be modifed by descriptor which will compute r, c whenver an instance call it.   
-        r       = None
-        c       = None
-        ori_mem = None
-        debug   = None
         
         self._init_hint(hint)
       
@@ -320,7 +323,7 @@ class matrixArrayLists(list):
                 # To do: specify m * n null matrix
                 self.nil(args[0], args[0], Null())
                 
-                self.setUp( args[1], args[0], c, ori_mem) 
+                self.setUp( args[1], args[0], self.c, self.ori_mem) 
                               
         elif numberOfargs  > 2:
             for i in range( 0, len(args) ):
@@ -340,15 +343,14 @@ class matrixArrayLists(list):
                 self.nil_multi(*args[0:i])
                 # fillup
                 self.fillUp(*args[i:])
-  
-        # self._init_matrix_formmater()
+
    
     def _init_hint(self, hint):
         for name, default in self.Init_hint_options.items():
             # set local variables
             exec("self.%s = %s" % (name, checkKey(name, default, hint)))
    
-    def _init_matrix_formatter(self, float=2, width=2, formatter=None):
+    def _init_matrix_formatter(self, _float=2, _width=2, formatter=None):
         for name, default in self.Init_matrix_options.items():
             # set local variables
             exec("self.%s = %s" % (name, default))
@@ -367,9 +369,9 @@ class matrixArrayLists(list):
                         col_length = len(str(inner_list[i][j])); 
                 except Exception:
                     pass
-            width_list.append(col_length + width)    
+            width_list.append(col_length + _width)    
                
-        return {'float':float, 'width':width_list}
+        return {'float':_float, 'width':width_list}
     
     
     # matrix STL iterators
@@ -384,22 +386,22 @@ class matrixArrayLists(list):
         ## ! just for two dimensions for the moment
         def __counter__(self):
             
-            def routine(iter, size, curr):
+            def routine(_iter, size, curr):
                 try:
-                    iter[curr] += 1
+                    _iter[curr] += 1
                 except Exception:
                     pass
                 # check whether it is flow out         
-                if  iter[curr] >= size[curr]:
+                if  _iter[curr] >= size[curr]:
                     
                     # last positon
                     if  curr == 0:
                         return True
                     else:
                         # clear the current bit
-                        iter[curr] = 0
+                        _iter[curr] = 0
                         # go into higher bit
-                        return routine(iter, size, curr - 1)              
+                        return routine(_iter, size, curr - 1)              
                 
                 return  False
             # commment the following lines when debug, other wise comment out
@@ -410,12 +412,12 @@ class matrixArrayLists(list):
             tier = len(size)
             
             # iteration indice
-            iter = tier * [0]
+            _iter = tier * [0]
             
             while True:
                 yield iter
                 # update              
-                signal = routine(iter, size, tier - 1)
+                signal = routine(_iter, size, tier - 1)
                 # exit processing
                 if  signal:
                     break
@@ -424,14 +426,14 @@ class matrixArrayLists(list):
             try:
                 index = next(self.counter)
                 return self.matrixArray[tuple(index)]
-            except StopIteration as e:
+            except StopIteration:
                 raise StopIteration()   
     
         def nextIndex(self):
             try:
                 index = next(self.counter)
                 return tuple(index)
-            except StopIteration as e:
+            except StopIteration:
                 raise StopIteration()
             
         def __str__(self):
@@ -504,7 +506,7 @@ class matrixArrayLists(list):
         if  r and r != 1 and (c and c == 1):
             # row vector:[[0],[1],[2],,,]
             for i in l:
-                if isinstance(  i,   list):
+                if isinstance(   i,  list ):
                     self.append( i )
                 else:
                     self.append([i])
@@ -513,8 +515,8 @@ class matrixArrayLists(list):
         # col vector
         if not r and (c and c == 1):
             for i in l:
-                if  isinstance(i, list):
-                    self.append(i)
+                if  isinstance(  i,  list ):
+                    self.append( i )
                 else:
                     self.append([i])
                     self.modifed_to_row_col = True
@@ -637,7 +639,7 @@ class matrixArrayLists(list):
                     # use customised magic expression "mat[:,[1,2,3],0,2:4] = another_matrix"
                     self[index] = value
                     # this is actually an  expression
-                except StopIteration as e:
+                except StopIteration:
                     break
 
         # modify shape accordingly
@@ -653,7 +655,7 @@ class matrixArrayLists(list):
                     p, q = (itl.nextIndex(), itr.__next__())
                     # use redefined method
                     obj[p] = q                  
-                except StopIteration as e:
+                except StopIteration:
                     break 
         
         return self
@@ -695,7 +697,7 @@ class matrixArrayLists(list):
         
         super(matrixArrayLists, self).clear() 
 
-        self.setUp([deepcopy([deepcopy(value) for i in range(c)]) for i in range(r)])
+        self.setUp([deepcopy([deepcopy(value) for _ in range(c)]) for _ in range(r)])
     
     # further extension form nil funciton            
     def Zeors(self, r, c=None):
@@ -707,7 +709,7 @@ class matrixArrayLists(list):
             
     def __call__(self, key=None, value=None):
         if  key == None:
-            pass
+            return self
         elif \
             key != None:
             if  value == None:
@@ -780,15 +782,15 @@ class matrixArrayLists(list):
                 l.extend([Null() for _ in range(steps)])                
             
     @timmer
-    def getitem(self, id, l):
+    def getitem(self, _id, l):
         # see idex processing from int, slice, list and tuple
         # [[1],[1,2,3,4],[5]...] --> [1] or [1,2,3,4] or [5] ..., 
         try:
-            return list(map(lambda idx: l.__getitem__(idx), id))
+            return list(map(lambda idx: l.__getitem__(idx), _id))
         except:
             return [Null()]       
     
-    def setitem_multi(self, ids, root, value):
+    def setitem_multi(self, ids, root, it):
         # deduce user behavior
         # get all possible id for setting
         def element_generator():      
@@ -815,8 +817,6 @@ class matrixArrayLists(list):
         depth = len(ids)
         # this initialization will reduce exception handling
         index = depth * [0]
-        # generator
-        it    = value.__iter__() 
         # running
         routines(1)
 
@@ -861,7 +861,7 @@ class matrixArrayLists(list):
         if  max(hint) <= 1:
             self.setitem([item[0] for item in key], value, root) 
         else:
-            self.setitem_multi(key, root, value)
+            self.setitem_multi(key, root, value.__it__())
         # make changes to the whole matrixArray
         self.setUp(root)
         return \
@@ -983,11 +983,11 @@ class matrixArrayLists(list):
         return  mat
      
     def is_equal(self, obj):
-        pass
-    
+        return self.size.assert_equal(obj.size)
+        
     def is_tolerate(self, obj):
-        pass              
- #===============================================================================
+        return self.size.assert_tolerate(obj.size)              
+#===============================================================================
 # operations between matrix
 #===============================================================================
 def union(*c, direction='l2r'):
@@ -1036,18 +1036,18 @@ def union(*c, direction='l2r'):
     
     return a
 
-def rowTtf(m, i, j):
+def row(m,i,j):
     temp = m[i,:]
-    m[i, :] = m[j, :]
-    m[j, :] = temp
+    m[i,:] = m[j,:]
+    m[j,:] = temp
 
-def colTtf(m, i, j):
+def col(m,i,j):
     temp = m[:,i]
-    m[:, i] = m[:, j]
-    m[:, j] = temp                 
+    m[:,i] = m[:,j]
+    m[:,j] = temp                 
 
-# TO DO PYCUDA IMPLEMENTATION            
-         
+
+# TO DO PYCUDA IMPLEMENTATION                    
 class matrixArrayNumeric(matrixArrayLists):
 
     def __init__(self, *args, **hints):
@@ -1060,8 +1060,7 @@ class matrixArrayNumeric(matrixArrayLists):
         map_object = map(Func, self, *iterables)
         return self.__class__([m for m in map_object])
     
-    def dot_iner(self, obj):
-        
+    def dot_in(self, obj):    
         sizel, sizer , flag = self.is_tolerate(obj)
 
         if  flag == False:
@@ -1069,23 +1068,23 @@ class matrixArrayNumeric(matrixArrayLists):
 
         # return numeric value
         if  sizel.row == 1 and sizer.col == 1:
-            sum = 0.0
+            _sum = 0.0
             for k in range(sizel.col):
-                sum += self[0,k] * obj[k,0]
-            return sum
+                _sum += self[0,k] * obj[k,0]
+            return _sum
         
         mat = self.__class__(sizel.row, sizer.col)
         
         # return matrixArray-series object
         for i in range(sizel.row):
             for j in range(sizer.col):
-                sum = 0.0
-                for k in range(self.col):
-                    sum += self[i,k] * obj[k,j]
-                mat[i,j] = sum
+                _sum = 0.0
+                for k in range(sizel.col):
+                    _sum += self[i,k] * obj[k,j]
+                mat[i,j] = _sum
                 
         return  mat
-    
+    __mul__ = dot_in
     
 class matrixArray(matrixArrayNumeric):
     
@@ -1105,5 +1104,13 @@ a = _TEST_MATRIX_MULTI = matrixArrayLists([
 b = _TEST_COMPUT = matrixArrayNumeric([]) 
 
 if __name__ == "__main__":
-    pass
+    l = []
     
+    for i in range(100):
+        l.append([str(i)+str(j) for j in range(1000)])
+
+    a = matrixArrayLists(l)
+    
+    a[80,100]
+    print(a[0])
+    pass
