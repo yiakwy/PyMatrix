@@ -12,10 +12,9 @@ Description:
 
 @licence: licence
 '''
-from time import time
-
 __all__ = ["matrixArrayLists", "matrixArrayNumeric", "matrixArray"] 
 
+from time import time
 
 DEBUG_TIME_ELAPSE = False
 # this function for elapse time measurement
@@ -386,22 +385,22 @@ class matrixArrayLists(list):
         ## ! just for two dimensions for the moment
         def __counter__(self):
             
-            def routine(_iter, size, curr):
+            def routine(iter, size, curr):
                 try:
-                    _iter[curr] += 1
+                    iter[curr] += 1
                 except Exception:
                     pass
                 # check whether it is flow out         
-                if  _iter[curr] >= size[curr]:
+                if  iter[curr] >= size[curr]:
                     
                     # last positon
                     if  curr == 0:
                         return True
                     else:
                         # clear the current bit
-                        _iter[curr] = 0
+                        iter[curr] = 0
                         # go into higher bit
-                        return routine(_iter, size, curr - 1)              
+                        return routine(iter, size, curr - 1)              
                 
                 return  False
             # commment the following lines when debug, other wise comment out
@@ -412,12 +411,12 @@ class matrixArrayLists(list):
             tier = len(size)
             
             # iteration indice
-            _iter = tier * [0]
+            iter = tier * [0]
             
             while True:
                 yield iter
                 # update              
-                signal = routine(_iter, size, tier - 1)
+                signal = routine(iter, size, tier - 1)
                 # exit processing
                 if  signal:
                     break
@@ -1033,7 +1032,7 @@ def union(*c, direction='l2r'):
     # mian loop
     for b in c:
         routine(a, b, direction)
-    
+    # print a for test
     return a
 
 def row(m,i,j):
@@ -1046,7 +1045,7 @@ def col(m,i,j):
     m[:,i] = m[:,j]
     m[:,j] = temp                 
 
-
+from operator import *
 # TO DO PYCUDA IMPLEMENTATION                    
 class matrixArrayNumeric(matrixArrayLists):
 
@@ -1060,6 +1059,18 @@ class matrixArrayNumeric(matrixArrayLists):
         map_object = map(Func, self, *iterables)
         return self.__class__([m for m in map_object])
     
+    def add_matrix(self, obj):
+        return self.map(add, obj) if self.is_equal(obj) else None# error will be raised inside
+    __add__ = add_matrix
+    
+    def sub_matrix(self, obj):
+        return self.map(sub, obj) if self.is_equal(obj) else None# error will be raised inside
+    __sub__ = sub_matrix
+    
+    def neg_matrix(self, obj):
+        return self.map(sub, obj) if self.is_equal(obj) else None# error will be raised inside
+    __neg__ = neg_matrix
+    
     def dot_in(self, obj):    
         sizel, sizer , flag = self.is_tolerate(obj)
 
@@ -1068,20 +1079,19 @@ class matrixArrayNumeric(matrixArrayLists):
 
         # return numeric value
         if  sizel.row == 1 and sizer.col == 1:
-            _sum = 0.0
+            sum = 0.0
             for k in range(sizel.col):
-                _sum += self[0,k] * obj[k,0]
-            return _sum
-        
-        mat = self.__class__(sizel.row, sizer.col)
+                sum += self[0,k] * obj[k,0]
+            return sum
         
         # return matrixArray-series object
+        mat = self.__class__(sizel.row, sizer.col)
         for i in range(sizel.row):
             for j in range(sizer.col):
-                _sum = 0.0
+                sum = 0.0
                 for k in range(sizel.col):
-                    _sum += self[i,k] * obj[k,j]
-                mat[i,j] = _sum
+                    sum += self[i,k] * obj[k,j]
+                mat[i,j] = sum
                 
         return  mat
     __mul__ = dot_in
@@ -1104,13 +1114,5 @@ a = _TEST_MATRIX_MULTI = matrixArrayLists([
 b = _TEST_COMPUT = matrixArrayNumeric([]) 
 
 if __name__ == "__main__":
-    l = []
-    
-    for i in range(100):
-        l.append([str(i)+str(j) for j in range(1000)])
-
-    a = matrixArrayLists(l)
-    
-    a[80,100]
-    print(a[0])
     pass
+    
