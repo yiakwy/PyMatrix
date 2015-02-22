@@ -860,7 +860,7 @@ class matrixArrayLists(list):
         if  max(hint) <= 1:
             self.setitem([item[0] for item in key], value, root) 
         else:
-            self.setitem_multi(key, root, value.__it__())
+            self.setitem_multi(key, root, value.__iter__())
         # make changes to the whole matrixArray
         self.setUp(root)
         return \
@@ -982,10 +982,10 @@ class matrixArrayLists(list):
         return  mat
      
     def is_equal(self, obj):
-        return self.size.assert_equal(obj.size)
+        return self.size.assert_equal(obj.size) if isinstance(obj, self.__class__) else (self.size, None, False); raise(Exception('wrong types: should be matrix'))
         
     def is_tolerate(self, obj):
-        return self.size.assert_tolerate(obj.size)              
+        return self.size.assert_tolerate(obj.size) if isinstance(obj, self.__class__) else (self.size, None, False); raise(Exception('wrong types: should be matrix'))        
 #===============================================================================
 # operations between matrix
 #===============================================================================
@@ -1060,22 +1060,22 @@ class matrixArrayNumeric(matrixArrayLists):
         return self.__class__([m for m in map_object])
     
     def add_matrix(self, obj):
-        return self.map(add, obj) if self.is_equal(obj) else None# error will be raised inside
+        return self.map(add, obj) if self.is_equal(obj) else self.map(lambda v: v + obj)# error will be raised inside
     __add__ = add_matrix
     
     def sub_matrix(self, obj):
-        return self.map(sub, obj) if self.is_equal(obj) else None# error will be raised inside
+        return self.map(sub, obj) if self.is_equal(obj) else self.map(lambda v: v - obj)# error will be raised inside
     __sub__ = sub_matrix
     
-    def neg_matrix(self, obj):
-        return self.map(sub, obj) if self.is_equal(obj) else None# error will be raised inside
+    def neg_matrix(self):
+        return self.map(neg)
     __neg__ = neg_matrix
     
     def dot_in(self, obj):    
         sizel, sizer , flag = self.is_tolerate(obj)
 
         if  flag == False:
-            raise  Exception("not match!")
+            return self.map(lambda v: v * obj)
 
         # return numeric value
         if  sizel.row == 1 and sizer.col == 1:
@@ -1103,7 +1103,8 @@ class matrixArray(matrixArrayNumeric):
         
     def name(self):
         return "matrixArrayNumeric:"
-            
+
+# for easy testing purpose            
 a = _TEST_MATRIX_MULTI = matrixArrayLists([
                          [['000', '001', '002'], ['010', '011', '012'], ['020', '021', '022']],
                          [['100', '101', '102'], ['110', '111', '112'], ['120', '121', '122']],
@@ -1114,5 +1115,8 @@ a = _TEST_MATRIX_MULTI = matrixArrayLists([
 b = _TEST_COMPUT = matrixArrayNumeric([]) 
 
 if __name__ == "__main__":
-    pass
+    b = matrixArrayNumeric([1,2])
+    
+    print(-b)
+    print(b * 2)
     
