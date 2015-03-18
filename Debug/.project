@@ -20,5 +20,10 @@
 			<type>2</type>
 			<location>/Users/wangyi/GitHub/PyMatrix/src</location>
 		</link>
+		<link>
+			<name>test</name>
+			<type>2</type>
+			<location>/Users/wangyi/GitHub/PyMatrix/test</location>
+		</link>
 	</linkedResources>
 </projectDescription>

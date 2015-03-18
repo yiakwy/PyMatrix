@@ -1,3 +1,4 @@
 eclipse.preferences.version=1
 encoding//src/core/matrixArray.py=utf-8
 encoding//src/core/parrellel/OpenCL.py=utf-8
+encoding//test/TestMatrix/TestMatrix.py=utf-8

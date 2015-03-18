@@ -1,3 +1,4 @@
+from __future__ import division
 # -*- coding: utf-8 -*-
 '''
 Created on 18 Sep, 2014
@@ -48,7 +49,15 @@ class Null():
     
     def __repr__(self):
         return 'nullObect'
-    
+     
+    def  __add__(self, other):
+        return Null()
+     
+    def  __sub__(self, other):
+        return Null()
+     
+    def  __mul__(self, other):
+        return Null()
     
 #===========================================================================
 # n-d matrix size discriptor: when it is 2-d or 1-d, it reduces to {row, col} form
@@ -85,7 +94,6 @@ class Size(object):
                     return self.data[name]
                 except:
                     return self.data[{'row':0, 'col':1}[name]]
-
             raise Exception("no such attribute")
         
     def __len__(self):
@@ -96,7 +104,10 @@ class Size(object):
     
     def __str__(self):
         return str( len(self.data) ) + ':' + str(self.data) + '\n'         
-
+    
+    def append(self, item):
+        self.data.append(item)
+        return self.data
     
     def assert_equal(self, size):
         # do implementation here
@@ -112,18 +123,18 @@ class Size(object):
 #===========================================================================
 class Formatter(object):
     
-    def __init__(self, data = {'width':2, 'float':2}, description= ['{0:<{width}.{float}f} ', '{0:<{width}s} ']):
+    def __init__(self, size=None, data = {'width':2, 'float':2}, description= ['{0:<{width}.{float}f} ', '{0:<{width}s} ', '{0:<{width}s} ']):
         self.templates = []
-        self.templates.append(description[0])
-        self.templates.append(description[1]) 
+        self.templates.extend(description)
         self.data = data
+        self.size = size
 
     def __get__(self, caller, callerType):
         if  caller == None:
             return \
                 self
         else:
-            return Formatter(caller._init_matrix_formatter())
+            return Formatter(caller.size, caller._init_matrix_formatter())
     
     def __getitem__(self, _id):
         return self.templates[_id]
@@ -136,81 +147,152 @@ class Formatter(object):
                 # get stored position
                 a, b, c = self.position
                 width = self.data[name]
+                
                 # get width for the element in column b
-                return 0 if a == len(c) - 1 and b == len(c[a]) - 1 else width[b]
+                return 0 if a == self.size.row - 1 and b == self.size.col - 1 else width[b]# len(c), len(c[a])
             if  name == 'float':
                 return self.data[name]
     
     def register(self, template):
         self.templates.append(template)
     
-    def store(self, a, b, c):
-        # keep element position
-        self.position = (a, b, c)
-    
     # used to decorate element
     # format(element) -> new string
     def fire(self, element, a, b, c):
         # store the value
         self.position = (a, b, c)
+        
         # return processed string
         try:
-            return self[0].format(element,           width=self.width, float=self.float)
+            return self[0].format(element,
+                                  width=self.width, 
+                                  float=self.float)
         except ValueError:
-            return self[1].format(element.__str__(), width=self.width)
+            return self[1].format(element.__str__(), 
+                                  width=self.width)
         except TypeError:
-            return self[1].format(element.__str__(), width=self.width)
+            return self[2].format(element.__str__(), 
+                                  width=self.width)
     __call__ = fire
     
 #===========================================================================
 # matrix input output middleware, this part will check all the input values on behalf of matrix
 #===========================================================================
 # wraps all the dirty parts here
-class matrixMiddleWare(object):
+class meta(type):
     
-    def __init__(self, *callbacks, position=0):
-        self.pre_callbacks, self.post_callbakcs = \
-                        callbacks[position], callbacks[:position]
-
-    def fire(self, cls):
+    def __init__(cls, name, bases, nmspc):
+        super(meta, cls).__init__(name, bases, nmspc)
         
+        # binding methods to cls
+
+class matrixABCMiddleWare(metaclass=meta):
+    #@ author Lei Wang
+    
+    def  __new__(cls, *args, **hints):
+        if  len(args) == 1:
+            cls = matrixInsMiddleWare
+        else:
+            cls = matrixClsMiddleWare    
+        mdwinst = object.__new__(cls, *args, **hints)
+        mdwinst.__init__(*args, **hints)
+        return mdwinst
+
+# with parameter
+class matrixClsMiddleWare(object):
+    #@ author Lei Wang
+    
+    def __init__(self, cls, *callbacks, position=0):
+        self.pre_callbacks, self.post_callbakcs = \
+                        list(callbacks[position:]), list(callbacks[:position])      
+
+    def fire(self, cls=None):
+        return Handlers(cls, self.pre_callbacks, self.post_callbacks)
+    __call__ = fire
+
+# without parameters
+class matrixInsMiddleWare(object):
+    #@ Lei Wang
+    
+    def __init__(self, cls):
         self.cls = cls
         
-        return Handlers(self.cls, self.pre_callbacks, self.post_callbacks)
+    def fire(self, *args, **hints):
+        return Handlers(self.cls(*args, **hints))
     __call__ = fire
  
- 
-class Handlers(object):
+class Handlers(dict):
     
-    def __init__(self, cls,  pre__handlers, post_handlers):
-        
+    def __init__(self, cls,  pre__handlers=[], post_handlers=[]):
+               
         self.cls = cls
         self.pre__hanlders = pre__handlers
-        self.post_handlers = post_handlers
+        self.post_handlers = post_handlers  
+           
+## iterator hook
+    def __iter__(self):
+        return self.cls.__iter__() 
+        
+    def attach__pre(self, *callbacks):
+        self.pre__hanlders.extend(callbacks);return self
+        
+    def attach_post(self, *callbacks):
+        self.post_handlers.extend(callbacks);return self
         
     def fire(self, *args, **keywords):
-        
         self.cls = self.cls(*args, **keywords)        
     __call__ = fire
+    
+    def addh(self, callback, attr=None, type='a'):
+        if  attr:
+            if  attr.__dict__ == {}:
+                attr.__dict__.update(a=[],b=[])
+            ## assignment
+            attr.__dict__[type].append(callback)
+        else:
+            if type == 'a':self.pre__handlers.append(callback)
+            if type == 'b':self.post_handlers.append(callback)
+            else: pass   
+    
+    def rmvh(self, callback, attr=None, type=-1):
+        pass
         
     def __getattr__(self, name):
         attr = self.cls.__getattribute__(name)
+        cls  = self.cls
+
+        if  attr.__dict__ == {}:
+            attr.__dict__.update(a=[],b=[])
+
         if  callable(attr):
             def hooked(*args, **kwargs):
                 # fire pre  processing handlers
-                for handler in self.pre__hanlders:
+                for handler in self.pre__hanlders + attr.__dict__['a']:
                     handler(*args, **kwargs)
                 # inner running
                 result = \
                        attr(*args, **kwargs)
                 # fire post processing handlers
-                for handler in self.post_handlers:
+                for handler in self.post_handlers + attr.__dict__['b']:
                     handler(*args, **kwargs)
                 # prevent cls from becoming unwrapped
-                return self if isinstance(result, self.cls.__class__) else result
+                return Handlers(result) if isinstance(result, self.cls.__class__) else result
             return hooked
         else:
-            return attr           
+            return attr 
+
+## methods hook      
+    def __str__(self):
+        return self.cls.__str__() 
+    
+    def __len__(self):
+        return self.cls.__len__()
+    
+    def __getitem__(self, *args, **hints):
+        return self.cls.__getitem__(*args, **hints)
+    
+    def __setitem__(self, *args, **hints):
+        return self.cls.__setitem__(*args, **hints)      
     
 # helper function
 def index_len(key, l):
@@ -221,10 +303,13 @@ def index_len(key, l):
         return (len(key),)
     
     if  isinstance(key, slice):
-        start, stop, step = key.indices(l)
+        start, stop, step = key.indices(l if isinstance(l, int) 
+                                        else l[0])
         return (len(range(start, stop, step)),) 
     #   entrance
     if  isinstance(key, tuple):
+        from copy import deepcopy 
+        l = deepcopy(l)
         return tuple([index_len(i, l.pop(0) if len(l) > 0 else 0)[0] for i in key]) 
 
 # helper function
@@ -236,10 +321,13 @@ def index_val(key, l):
         return (key,)
     
     if  isinstance(key, slice):
-        start, stop, step = key.indices(l)
+        start, stop, step = key.indices(l if isinstance(l, int) 
+                                        else l[0])
         return (list(range(start, stop, step)),)
     #   entrance
     if  isinstance(key, tuple):
+        from copy import deepcopy
+        l = deepcopy(l)
         return tuple([index_val(i, l.pop(0) if len(l) > 0 else 0)[0] for i in key])     
     
     
@@ -273,7 +361,7 @@ class matrixArrayLists(list):
     formatter           = Formatter()
     
     # options, configuration context
-    Init_hint_options   = { 'r': None, 'c': None, 'debug' : False, 'modifed_to_row_col': False , 'ori_mem': None, }
+    Init_hint_options   = { 'r': None, 'c': None, 'debug' : False, 'modifed_to_row_col': False , 'ori_mem': None, 'R':False, 'row_indexList':[], 'col_indexList':[]}
     Init_matrix_options = { 'width':2, 'float':2,} 
     
     def __init__(self, *args, **hint):
@@ -362,10 +450,14 @@ class matrixArrayLists(list):
         
         for j in range(size[1]):      
             col_length = 0
-            for i in range(size[0]):
+            for i in range(size[0]):            
                 try:
-                    if  col_length < len(str(inner_list[i][j])):
-                        col_length = len(str(inner_list[i][j])); 
+                    element = inner_list[i][j]
+                    if  isinstance(element, float):
+                        element = round(element, _float)
+                        
+                    if  col_length < len(str(element)):
+                        col_length = len(str(element)); 
                 except Exception:
                     pass
             width_list.append(col_length + _width)    
@@ -438,21 +530,41 @@ class matrixArrayLists(list):
         def __str__(self):
             return "matrix iterator"
 
+    def setup_r_mode(self):
+        if  self.R != True:
+            self.R = False
+    
+    def clear_r_mode(self):
+        if  self.R == True:
+            self.R = False
     
     def setIndice(self, l):
-        pass
+        from itertools import zip_longest
+        self.row_indexList.append( dict(zip_longest(l, range(0, len(self)))) )
+        self.setup_r_mode()
     
     def setHeader(self, l):
-        self.insert( 0, list(l) )    
+        from itertools import zip_longest
+        self.col_indexList.append( dict(zip_longest(l, range(0, len(self)))) )
+        self.setup_r_mode()
+    
+    def getIndice(self, axis):
+        if  self.R:
+            for index in self.row_indexList:
+                for i, item in enumerate(axis):
+                    try:
+                        axis[i] = index[item]
+                    except:
+                        pass        
         
-    def json2list(self, json):
-        l = [[record[key] for key in json[0].keys()] for record in json]
+    def json2list(self, json, header=None):
+        # get header
+        h = header if header == None else json[0].keys()
+        l = [[record[key] for key in h] for record in json]
         
         self.setUp(l)
         # set header
-        self.setHeader( json[0].keys() )
-        # set indice
-        self.setIndice(range(0, len(l)))
+        self.setHeader(h)
         
     #===========================================================================
     # n-d matrix helper functions
@@ -681,9 +793,9 @@ class matrixArrayLists(list):
                 if  i+1  < deep-1:
                     queue.append( (child[j], i+1) )
                 else:
-                    child = child[j]
+                    gchild = child[j]
                     for j in range(0, args[i+1]):
-                        child[j] = Null()
+                        gchild[j] = Null()
         # reset the empty matrix
         self.setUp(root)
                     
@@ -757,7 +869,7 @@ class matrixArrayLists(list):
         # this assuming that value will automaticaly fill the part what index indicates
         # e.g.: 'matrix[[1,2,3],0] = value' means that find elements in 'value' to fill in a[1,0], a[2,0], a[3,0]
         curr = 0
-        hook = l
+        hook = l; test = l
         
         while curr < len(id) -1:
             try:
@@ -767,7 +879,7 @@ class matrixArrayLists(list):
                     hook = l
                 else:
                     l = [l]
-                    hook[id[curr-1]] = l
+                    hook[id[curr-1]] = l;hook = l
             except:      
                 steps = id[curr] - len(l) + 1
                 l.extend([Null() for _ in range(steps)])
@@ -801,10 +913,7 @@ class matrixArrayLists(list):
                 for i in ids[curr-1]:
                     index[curr-1] = i 
                     try: 
-                        # set value
-                        # get element
-                        self.setitem(index, element_generator().__next__(), root)
-                        
+                        self.setitem(index, next(element_generator()), root)                    
                     except StopIteration:
                         return 
             else:
@@ -835,12 +944,11 @@ class matrixArrayLists(list):
                 # processing
                 for grdchild in self.getitem(ids[axis], child): 
                      
-                    if   axis + 1 <  l - 1:
-                        stack.append((grdchild,  axis+1))
-                    elif axis <  l - 1:
-                        final.append(self.getitem(ids[axis+1], grdchild))
+                    if   axis <  l - 1:
+                        stack.append((grdchild, axis+1))
                     else:
-                        final.append(grdchild)
+                        # item = self.getitem(ids[axis], grdchild)
+                        final.append( grdchild )
 
             except IndexError as e:
                 print(e)
@@ -849,14 +957,37 @@ class matrixArrayLists(list):
         return  final    
         
     def __setitem__(self, key, value): 
+        size = self._get_shape_array()
         # later I will wrap this method in middleWare preprocessing
         # middleware preprocessing       
-        hint  = index_len(key, self._get_shape_array())
+        hint = index_len(key, size)
         # middleware preprocessing 
-        key   = index_val(key, self._get_shape_array())
+        key  = index_val(key, size)
         # get inner representation
-        root  = self.get_runtime_list()
-       
+        root = self.get_runtime_list()
+        # infer user 's attention
+        # enhanced functionality for better customers experience
+        if  len(hint) == 1 or (size.__len__() != len(hint) and 1 in size):
+            # entry point
+            
+            def get_offset():
+                result = [v for v in key]
+                for i in range(size.__len__()):
+                    if size[i] != 1:
+                        break
+                offset = [[0]] * i
+                offset.extend(result)
+                result = offset
+                for i in range(size.__len__()):
+                    if size[len(size) - i - 1] != 1:
+                        break
+                offset = [[0]] * i
+                result.extend(offset)
+                
+                return tuple(result) 
+            # redefine
+            key = get_offset()
+        
         if  max(hint) <= 1:
             self.setitem([item[0] for item in key], value, root) 
         else:
@@ -867,22 +998,33 @@ class matrixArrayLists(list):
             self
     
     @timmer
-    def __getitem__(self, key):
-        # later I will wrap this method in middleWare preprocessing
+    def __getitem__(self, key):       
+        size = self._get_shape_array()
+        # later I will wrap this method in middleWare pre_processing
         # middleware preprocessing       
-        hint  = index_len(key, self._get_shape_array())
+        hint = index_len(key, size)
         # middleware preprocessing 
-        key   = index_val(key, self._get_shape_array())
+        key  = index_val(key, size)
         
-        root  = self.get_runtime_list()
+        root = self.get_runtime_list()
         # get inner representation of the query result
-        array = self.getitem_multi(key, root)
+        slot = self.getitem_multi(key, root); array = []
+
         try:
             if  max(hint) <= 1:
                 # return the value wrapped in the list
-                return array[0][0] if len(hint) == len(self._get_shape_array()) else \
-                       self.__class__(array, r=hint[0])
-            
+                number = slot[0][0] if isinstance(slot[0], list) else slot[0]
+                return number if len(hint) == len(size) or 1 in size \
+                                   else self.__class__(slot, r=hint[0])
+            # later I will wrap this method in middleWare postprocessing
+            # some additional adjugement to make sure it is safe and stable
+            if  len(hint) >= 3:
+                for i in range(len(hint) - 1):
+                    if  hint[len(hint) - 1 - i] != 1:
+                        break
+                hint =  hint[0:len(hint) - i]
+            self.setitem_multi(tuple(map(list, map(range, hint))), array, iter(slot)) 
+            # go           
             if  len(hint) == 1:
                 return self.__class__(array, r=hint[0])
             else:
@@ -897,31 +1039,34 @@ class matrixArrayLists(list):
         
         if  len(size)  > 2:
             pass#return self.name() + '\n' + super(matrixArrayLists, self).__str__()
-          
+        formatter = self.formatter  
         # string representation
-        out  = ""
+        out  = []#""
         pre  = ' '
         succ = '\n '
         c    = self.get_runtime_list()
         
         # set title
-        out += '\n' + self.name() + '\n' + "["
+        out.append(self.name() + "\n[")# out += self.name() + "\n["# position 0
         for a in range(len(c)):
-            out += pre    
+            out.append(pre)#out += pre # position 1 + self.col * (a + 1) 
             for b in range(len(c[a])):
-                out += self._element2str(a, b, c)               
+                out.append(self._element2str(a, b, c, formatter))#out += self._element2str(a, b, c, formatter)
+            t = [Null()] * size.col  
+            for d in range(b, b + size.col - len(c[a])):
+                out.append(self._element2str(a, d, t, formatter))#out += self._element2str(a, d, t, formatter)                    
             if  a < len(c) - 1:
-                out += succ       
-        out += "]\n" 
+                out.append(succ)#out += succ       
+        out.append("]\n")#out += "]\n"# position 1 + size.row * size.col 
         
-        return out
+        return ''.join(out)
     
-    def _element2str(self, i, j, l=[]):
+    def _element2str(self, i, j, l=[], formatter=formatter):
                 
         try:
-            return self.formatter(l[i][j], i, j, l)
+            return formatter(l[i][j], i, j, l)
         except TypeError:
-            return self.formatter(l[i], i, j, l)
+            return formatter(l[i], i, j, l)
         pass
            
     __str__ = _str
@@ -980,7 +1125,7 @@ class matrixArrayLists(list):
             for j in range(size.row):
                 mat[i,j] = self[j,i]   
         return  mat
-     
+    
     def is_equal(self, obj):
         return self.size.assert_equal(obj.size) if isinstance(obj, self.__class__) else (self.size, None, False); raise(Exception('wrong types: should be matrix'))
         
@@ -1046,6 +1191,8 @@ def col(m,i,j):
     m[:,j] = temp                 
 
 from operator import *
+# this is key features provided by Python3
+from statistics import *
 # TO DO PYCUDA IMPLEMENTATION                    
 class matrixArrayNumeric(matrixArrayLists):
 
@@ -1057,19 +1204,32 @@ class matrixArrayNumeric(matrixArrayLists):
     
     def map(self, Func, *iterables):
         map_object = map(Func, self, *iterables)
-        return self.__class__([m for m in map_object])
+        try:
+            args = self.size.append([m for m in map_object])
+        except:
+            pass
+        return self.__class__(*args)#self.__class__([m for m in map_object])
     
     def add_matrix(self, obj):
-        return self.map(add, obj) if self.is_equal(obj) else self.map(lambda v: v + obj)# error will be raised inside
+        return self.map(add, obj) if self.is_equal(obj) \
+            else self.map(lambda v: v + obj)# error will be raised inside
     __add__ = add_matrix
     
     def sub_matrix(self, obj):
-        return self.map(sub, obj) if self.is_equal(obj) else self.map(lambda v: v - obj)# error will be raised inside
+        return self.map(sub, obj) if self.is_equal(obj) \
+            else self.map(lambda v: v - obj)# error will be raised inside
     __sub__ = sub_matrix
     
     def neg_matrix(self):
         return self.map(neg)
     __neg__ = neg_matrix
+    
+    # self add module
+    # single operant operator
+    def iad_matrix(self, other):
+        return self.add_matrix(other)
+    __iadd__ \
+    = iad_matrix
     
     def dot_in(self, obj):    
         sizel, sizer , flag = self.is_tolerate(obj)
@@ -1094,18 +1254,75 @@ class matrixArrayNumeric(matrixArrayLists):
                 mat[i,j] = sum
                 
         return  mat
+    # idealy if the two vectors are tolerated to each other we call dot_in. Otherwise, if they have the same size we call dot_out
     __mul__ = dot_in
     
+    def dot_out(self, obj):
+        pass
+    
+    def div_matrix(self, obj):
+        sizel, sizer , flag = self.is_tolerate(obj)
+        
+        if flag == False:
+            return self.map(lambda v: v / obj)
+    __truediv__ = div_matrix
+  
+    def mean_vt(self):
+        result = self[0,:]
+        for i in range(1, self.size.row):
+            result += self[i,:]
+        return result / self.size.row
+  
+    def ubds_vt(self, index=None):
+        import math
+        
+        if  index != None:
+            # index is a numeric. use this expession
+            vector = self[:,index]
+            meanvl = vector.mean_vt()
+            for i in range(len(vector)):
+                vector[i,0] = (vector[i] - meanvl) ** 2
+            return math.sqrt(sum(vector)) / len(vector)
+        
+        result = []
+        for i in range(0, self.size.col):
+            result.append(self.ubds_vt(i))
+        # django - ui - 
+        r = 1
+        c = self.size.col
+        return self.__class__(r,c,result)
+        
+        
+## These funtions deal with relationship between matrices  
+def _sum(*c):
+    result = c[0] 
+    for i in c[1:]:
+        result += i      
+    return result
+    
+def mean(*c):
+    """
+    This function will cacualted vector mean alone any axes. Currently it just supports nd matrix or 1d vector. 
+    """
+    return \
+    _sum(*c) / len(c) if len(c) == 1 else mean(c[0])
+    
+    
+@matrixABCMiddleWare  
 class matrixArray(matrixArrayNumeric):
     
     def __init__(self, *args, **hints):
-        super(matrixArray, self).__init__(*args, **hints)
+        super(self.__class__, self).__init__(*args, **hints)
         
     def name(self):
-        return "matrixArrayNumeric:"
+        return "matrixArray:"
+
+# middleWare control panel
+def checkRIndex(index):
+    print(1)
 
 # for easy testing purpose            
-a = _TEST_MATRIX_MULTI = matrixArrayLists([
+a = _TEST_MATRIX_MULTI = matrixArrayNumeric([
                          [['000', '001', '002'], ['010', '011', '012'], ['020', '021', '022']],
                          [['100', '101', '102'], ['110', '111', '112'], ['120', '121', '122']],
                          [['200', '201', '202'], ['210', '211', '212'], ['220', '221', '222']],
@@ -1113,10 +1330,47 @@ a = _TEST_MATRIX_MULTI = matrixArrayLists([
                          ])
 
 b = _TEST_COMPUT = matrixArrayNumeric([]) 
-
+from numpy import  array
+e = _TEST_array  = array([
+                         [['000', '001', '002'], ['010', '011', '012'], ['020', '021', '022']],
+                         [['100', '101', '102'], ['110', '111', '112'], ['120', '121', '122']],
+                         [['200', '201', '202'], ['210', '211', '212'], ['220', '221', '222']],
+                         [['300', '301', '302'], ['310', '311', '312'], ['320', '321', '322']]
+                         ])
 if __name__ == "__main__":
-    b = matrixArrayNumeric([1,2])
+    pass
+# 2015 4:
+#     print(matrixArrayNumeric([[1,2],[3,4],[5,6]]).mean_vt())
+#     print(matrixArrayNumeric([[1,2],[3,4],[5,6]]).ubds_vt())
+#      
+#     for i in range(50):
+#         for j in range(50):
+#             b[i,j] = str(i) + str(j)
+#             print(b)
+# 2015 3:
+#     a = matrixArrayNumeric([1,1]);print(a)
+#     b = matrixArrayNumeric([1,1])
+#     c = matrixArrayNumeric([1,1])
+#     
+#     print(sumx(a,b,c))
+#     
+#     a = a / 2.0
+#     print(a)
     
-    print(-b)
-    print(b * 2)
-    
+# 2015 3:
+#
+#     b = matrixArrayNumeric([[1,2],[3,4]])
+#     b.setHeader(['time','power'])
+#     b.setIndice(['1','2'])
+#     
+#     c = matrixArray([[1,2],[3,4]])
+#     c.trp()
+#     print(c[0])
+# 
+#     c.addh(checkRIndex, matrixArrayLists.__getitem__)
+#     c.setHeader(['time','power'])
+#     c.setIndice(['1','2'])
+#     
+#     print(a[[1,2],[1,2],[1,2]])
+#     print(a[[1,2],[1,2],0])
+     
