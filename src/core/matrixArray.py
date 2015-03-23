@@ -103,9 +103,13 @@ class Size(object):
             len(self.data)
     
     def __str__(self):
-        return str( len(self.data) ) + ':' + str(self.data) + '\n'         
+        return str( len(self.data) ) + ':' + str(self.data) + '\n'
     
-    def append(self, item):
+    def   count(self, item):
+        self.data.count(item)
+        return self.data
+    
+    def  append(self, item):
         self.data.append(item)
         return self.data
     
@@ -886,7 +890,8 @@ class matrixArrayLists(list):
                 
         while True:
             try:
-                l[id[curr]] = element
+                # element casting
+                l[id[curr]] = element if not isinstance(element, self.__class__) else element.matrix2list()
                 break
             except:
                 steps = id[curr] - len(l) + 1
@@ -1005,25 +1010,44 @@ class matrixArrayLists(list):
         hint = index_len(key, size)
         # middleware preprocessing 
         key  = index_val(key, size)
-        
+        # get inner representation of the query object
         root = self.get_runtime_list()
-        # get inner representation of the query result
-        slot = self.getitem_multi(key, root); array = []
-
+        
         try:
-            if  max(hint) <= 1:
+            if  max(hint) <= 1:             
                 # return the value wrapped in the list
-                number = slot[0][0] if isinstance(slot[0], list) else slot[0]
-                return number if len(hint) == len(size) or 1 in size \
-                                   else self.__class__(slot, r=hint[0])
+                # judge this by user inputting and matrix demensions
+                if len(hint) == len(size):
+                    slot = self.getitem_multi(key, root)
+                    return slot[0]
+                # user might use a simple way to get list data
+                if len(hint) + size.count(1) \
+                             == len(size):
+                    def realidx():
+                        it = key.__iter__(); id = []
+                        for i in size:
+                            id.append([0] if i == 1 else next(it))
+                        return id
+                    
+                    real = realidx()
+                    slot = self.getitem_multi(real, root)
+                    return slot[0]
+                else:
+                    slot = self.getitem_multi( key, root)
+                    return self.__class__(slot,r=hint[0])
+#                number = slot[0][0] if isinstance(slot[0], list) else slot[0]
+#                return number if len(hint) == len(size) or 1 in size \
+#                                   else self.__class__(slot, r=hint[0])
             # later I will wrap this method in middleWare postprocessing
             # some additional adjugement to make sure it is safe and stable
             if  len(hint) >= 3:
+                # get inner representation of the query result
+                slot = self.getitem_multi(key, root); array = []
                 for i in range(len(hint) - 1):
                     if  hint[len(hint) - 1 - i] != 1:
                         break
                 hint =  hint[0:len(hint) - i]
-            self.setitem_multi(tuple(map(list, map(range, hint))), array, iter(slot)) 
+            self.setitem_multi( tuple(map(list, map(range, hint))), array, iter(slot) ) 
             # go           
             if  len(hint) == 1:
                 return self.__class__(array, r=hint[0])
@@ -1342,7 +1366,7 @@ if __name__ == "__main__":
 # 2015 4:
 #     print(matrixArrayNumeric([[1,2],[3,4],[5,6]]).mean_vt())
 #     print(matrixArrayNumeric([[1,2],[3,4],[5,6]]).ubds_vt())
-#      
+#       
 #     for i in range(50):
 #         for j in range(50):
 #             b[i,j] = str(i) + str(j)
