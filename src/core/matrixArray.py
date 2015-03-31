@@ -149,7 +149,7 @@ class Formatter(object):
         except:
             if  name == 'width':
                 # get stored position
-                a, b, c = self.position
+                a, b  = self.position
                 width = self.data[name]
                 
                 # get width for the element in column b
@@ -162,9 +162,9 @@ class Formatter(object):
     
     # used to decorate element
     # format(element) -> new string
-    def fire(self, element, a, b, c):
+    def fire(self, element, a, b):
         # store the value
-        self.position = (a, b, c)
+        self.position = (a, b)
         
         # return processed string
         try:
@@ -910,7 +910,7 @@ class matrixArrayLists(list):
         # deduce user behavior
         # get all possible id for setting
         def element_generator():      
-            yield next(it)
+            yield next(it) if hasattr(it, '__next__') else it
         
         def routines(curr):
             #   exitance
@@ -972,7 +972,7 @@ class matrixArrayLists(list):
         root = self.get_runtime_list()
         # infer user 's attention
         # enhanced functionality for better customers experience
-        if  len(hint) == 1 or (size.__len__() != len(hint) and 1 in size):
+        if  len(hint) == 1 or (size.__len__() > len(hint) and 1 in size): # should use >= provided that i cannot be exec if matrix is empty
             # entry point
             
             def get_offset():
@@ -996,6 +996,8 @@ class matrixArrayLists(list):
         if  max(hint) <= 1:
             self.setitem([item[0] for item in key], value, root) 
         else:
+            # the value might not has iterator, hence need error handler here
+            self.setitem_multi(key, root, value) if not hasattr(value, '__iter__') else \
             self.setitem_multi(key, root, value.__iter__())
         # make changes to the whole matrixArray
         self.setUp(root)
@@ -1040,9 +1042,9 @@ class matrixArrayLists(list):
 #                                   else self.__class__(slot, r=hint[0])
             # later I will wrap this method in middleWare postprocessing
             # some additional adjugement to make sure it is safe and stable
+            # get inner representation of the query result
+            slot = self.getitem_multi(key, root); array = []
             if  len(hint) >= 3:
-                # get inner representation of the query result
-                slot = self.getitem_multi(key, root); array = []
                 for i in range(len(hint) - 1):
                     if  hint[len(hint) - 1 - i] != 1:
                         break
@@ -1076,22 +1078,22 @@ class matrixArrayLists(list):
             out.append(pre)#out += pre # position 1 + self.col * (a + 1) 
             for b in range(len(c[a])):
                 out.append(self._element2str(a, b, c, formatter))#out += self._element2str(a, b, c, formatter)
-            t = [Null()] * size.col  
-            for d in range(b, b + size.col - len(c[a])):
-                out.append(self._element2str(a, d, t, formatter))#out += self._element2str(a, d, t, formatter)                    
+            for d in range(b + 1, b + size.col - len(c[a]) + 1):
+                out.append(self._element2str(a, d, c, formatter))#out += self._element2str(a, d, t, formatter)                    
             if  a < len(c) - 1:
                 out.append(succ)#out += succ       
         out.append("]\n")#out += "]\n"# position 1 + size.row * size.col 
         
         return ''.join(out)
     
-    def _element2str(self, i, j, l=[], formatter=formatter):
+    def _element2str(self, i, j, l, formatter=formatter):
                 
         try:
-            return formatter(l[i][j], i, j, l)
+            return formatter(l[i][j], i, j)
         except TypeError:
-            return formatter(l[i], i, j, l)
-        pass
+            return formatter(l[i], i, j)
+        except IndexError:
+            return formatter(Null(), i, j)
            
     __str__ = _str
                    
@@ -1128,15 +1130,15 @@ class matrixArrayLists(list):
                         elif True:
                             array.append(1)
                      
-                    # updating current axis - maximu lenth
-                    # axis control the looping layer  
-                    _max = max(array)    
-                    # try to update shape  
-                    try:
-                        if  shape[axis] < _max:
-                            shape[axis] = _max
-                    except:
-                        shape.append(_max) 
+                # updating current axis - maximu lenth
+                # axis control the looping layer  
+                _max = max(array)    
+                # try to update shape  
+                try:
+                    if  shape[axis] < _max:
+                        shape[axis] = _max
+                except:
+                    shape.append(_max) 
                                                  
         routines(root, shape, axis, queue)  
         return shape[0:-1]      
@@ -1362,15 +1364,29 @@ e = _TEST_array  = array([
                          [['300', '301', '302'], ['310', '311', '312'], ['320', '321', '322']]
                          ])
 if __name__ == "__main__":
-    pass
+# 2015 5：
+#     a[:]
+#     b = a[:,:,0]
+#     b = matrixArrayNumeric([[1,2,3,],[4,5,6]])
+#     b[:, 0] = 100
+#     c = b.trp() * b
+#     b[0,10] = -1
+#     b.clear()
+#     b[5] = 100
+#     print(b)
+#     var = input("please input...\n")
+#     print(var)
+#     pass
 # 2015 4:
 #     print(matrixArrayNumeric([[1,2],[3,4],[5,6]]).mean_vt())
 #     print(matrixArrayNumeric([[1,2],[3,4],[5,6]]).ubds_vt())
-#       
-#     for i in range(50):
-#         for j in range(50):
-#             b[i,j] = str(i) + str(j)
-#             print(b)
+    import random 
+           
+    for i in range(5):
+        for j in range(5):
+            b[i,j] = random.randrange(1, 1000)
+            # print(b)
+    print('done')
 # 2015 3:
 #     a = matrixArrayNumeric([1,1]);print(a)
 #     b = matrixArrayNumeric([1,1])
