@@ -19,6 +19,9 @@ from time import time
 
 DEBUG_TIME_ELAPSE = False
 # this function for elapse time measurement
+
+from core.framework.middleware import *
+
 def timmer(func):
     
     def wrapper(*args, **keywords):
@@ -177,126 +180,7 @@ class Formatter(object):
         except TypeError:
             return self[2].format(element.__str__(), 
                                   width=self.width)
-    __call__ = fire
-    
-#===========================================================================
-# matrix input output middleware, this part will check all the input values on behalf of matrix
-#===========================================================================
-# wraps all the dirty parts here
-class meta(type):
-    
-    def __init__(cls, name, bases, nmspc):
-        super(meta, cls).__init__(name, bases, nmspc)
-        
-        # binding methods to cls
-
-class matrixABCMiddleWare(metaclass=meta):
-    #@ author Lei Wang
-    
-    def  __new__(cls, *args, **hints):
-        if  len(args) == 1:
-            cls = matrixInsMiddleWare
-        else:
-            cls = matrixClsMiddleWare    
-        mdwinst = object.__new__(cls, *args, **hints)
-        mdwinst.__init__(*args, **hints)
-        return mdwinst
-
-# with parameter
-class matrixClsMiddleWare(object):
-    #@ author Lei Wang
-    
-    def __init__(self, cls, *callbacks, position=0):
-        self.pre_callbacks, self.post_callbakcs = \
-                        list(callbacks[position:]), list(callbacks[:position])      
-
-    def fire(self, cls=None):
-        return Handlers(cls, self.pre_callbacks, self.post_callbacks)
-    __call__ = fire
-
-# without parameters
-class matrixInsMiddleWare(object):
-    #@ Lei Wang
-    
-    def __init__(self, cls):
-        self.cls = cls
-        
-    def fire(self, *args, **hints):
-        return Handlers(self.cls(*args, **hints))
-    __call__ = fire
- 
-class Handlers(dict):
-    
-    def __init__(self, cls,  pre__handlers=[], post_handlers=[]):
-               
-        self.cls = cls
-        self.pre__hanlders = pre__handlers
-        self.post_handlers = post_handlers  
-           
-## iterator hook
-    def __iter__(self):
-        return self.cls.__iter__() 
-        
-    def attach__pre(self, *callbacks):
-        self.pre__hanlders.extend(callbacks);return self
-        
-    def attach_post(self, *callbacks):
-        self.post_handlers.extend(callbacks);return self
-        
-    def fire(self, *args, **keywords):
-        self.cls = self.cls(*args, **keywords)        
-    __call__ = fire
-    
-    def addh(self, callback, attr=None, type='a'):
-        if  attr:
-            if  attr.__dict__ == {}:
-                attr.__dict__.update(a=[],b=[])
-            ## assignment
-            attr.__dict__[type].append(callback)
-        else:
-            if type == 'a':self.pre__handlers.append(callback)
-            if type == 'b':self.post_handlers.append(callback)
-            else: pass   
-    
-    def rmvh(self, callback, attr=None, type=-1):
-        pass
-        
-    def __getattr__(self, name):
-        attr = self.cls.__getattribute__(name)
-        cls  = self.cls
-
-        if  attr.__dict__ == {}:
-            attr.__dict__.update(a=[],b=[])
-
-        if  callable(attr):
-            def hooked(*args, **kwargs):
-                # fire pre  processing handlers
-                for handler in self.pre__hanlders + attr.__dict__['a']:
-                    handler(*args, **kwargs)
-                # inner running
-                result = \
-                       attr(*args, **kwargs)
-                # fire post processing handlers
-                for handler in self.post_handlers + attr.__dict__['b']:
-                    handler(*args, **kwargs)
-                # prevent cls from becoming unwrapped
-                return Handlers(result) if isinstance(result, self.cls.__class__) else result
-            return hooked
-        else:
-            return attr 
-
-## methods hook      
-    def __str__(self):
-        return self.cls.__str__() 
-    
-    def __len__(self):
-        return self.cls.__len__()
-    
-    def __getitem__(self, *args, **hints):
-        return self.cls.__getitem__(*args, **hints)
-    
-    def __setitem__(self, *args, **hints):
-        return self.cls.__setitem__(*args, **hints)      
+    __call__ = fire    
     
 # helper function
 def index_len(key, l):
@@ -1070,18 +954,21 @@ class matrixArrayLists(list):
         out  = []#""
         pre  = ' '
         succ = '\n '
-        c    = self.get_runtime_list()
+        c    = self.get_runtime_list()       
+        # injected codes, these codes are used to trace of matrix row appended by out
         
         # set title
-        out.append(self.name() + "\n[")# out += self.name() + "\n["# position 0
+        out.append(self.name() + "\n[")#0,1 out += self.name() + "\n["# position 0
         for a in range(len(c)):
             out.append(pre)#out += pre # position 1 + self.col * (a + 1) 
             for b in range(len(c[a])):
                 out.append(self._element2str(a, b, c, formatter))#out += self._element2str(a, b, c, formatter)
             for d in range(b + 1, b + size.col - len(c[a]) + 1):
                 out.append(self._element2str(a, d, c, formatter))#out += self._element2str(a, d, t, formatter)                    
+
+            # for special case controlling
             if  a < len(c) - 1:
-                out.append(succ)#out += succ       
+                out.append(succ)#out += succ1       
         out.append("]\n")#out += "]\n"# position 1 + size.row * size.col 
         
         return ''.join(out)
@@ -1093,7 +980,7 @@ class matrixArrayLists(list):
         except TypeError:
             return formatter(l[i], i, j)
         except IndexError:
-            return formatter(Null(), i, j)
+            return formatter(Null() , i, j)
            
     __str__ = _str
                    
@@ -1217,7 +1104,7 @@ def col(m,i,j):
     m[:,j] = temp                 
 
 from operator import *
-# this is key features provided by Python3
+# this is one of key features provided by Python3
 from statistics import *
 # TO DO PYCUDA IMPLEMENTATION                    
 class matrixArrayNumeric(matrixArrayLists):
@@ -1333,8 +1220,7 @@ def mean(*c):
     return \
     _sum(*c) / len(c) if len(c) == 1 else mean(c[0])
     
-    
-@matrixABCMiddleWare  
+     
 class matrixArray(matrixArrayNumeric):
     
     def __init__(self, *args, **hints):
@@ -1397,7 +1283,7 @@ if __name__ == "__main__":
 #     a = a / 2.0
 #     print(a)
     
-# 2015 3:
+# 2015 3, middleware has been removed into another package as an independent work:
 #
 #     b = matrixArrayNumeric([[1,2],[3,4]])
 #     b.setHeader(['time','power'])
